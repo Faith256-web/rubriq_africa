@@ -21,7 +21,11 @@ const USERS_KEY = "rubriq.users.v1";
 const SESSION_KEY = "rubriq.session.v1";
 
 const readUsers = (): StoredUser[] => {
-  try { return JSON.parse(localStorage.getItem(USERS_KEY) || "[]"); } catch { return []; }
+  try {
+    return JSON.parse(localStorage.getItem(USERS_KEY) || "[]");
+  } catch {
+    return [];
+  }
 };
 const writeUsers = (u: StoredUser[]) => localStorage.setItem(USERS_KEY, JSON.stringify(u));
 
@@ -29,7 +33,8 @@ const writeUsers = (u: StoredUser[]) => localStorage.setItem(USERS_KEY, JSON.str
 export function register(input: z.infer<typeof registerSchema>): Session {
   const data = registerSchema.parse(input);
   const users = readUsers();
-  if (users.some(u => u.email === data.email)) throw new Error("An account with that email already exists.");
+  if (users.some((u) => u.email === data.email))
+    throw new Error("An account with that email already exists.");
   // First user becomes superadmin (per spec).
   const role: Role = users.length === 0 ? "superadmin" : "user";
   const user: StoredUser = { ...data, role };
@@ -42,15 +47,21 @@ export function register(input: z.infer<typeof registerSchema>): Session {
 export function login(input: z.infer<typeof loginSchema>): Session {
   const data = loginSchema.parse(input);
   const users = readUsers();
-  const found = users.find(u => u.email === data.email && u.password === data.password);
+  const found = users.find((u) => u.email === data.email && u.password === data.password);
   if (!found) throw new Error("Invalid email or password.");
   const session: Session = { name: found.name, email: found.email, role: found.role };
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   return session;
 }
 
-export function logout() { localStorage.removeItem(SESSION_KEY); }
+export function logout() {
+  localStorage.removeItem(SESSION_KEY);
+}
 
 export function getSession(): Session | null {
-  try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch { return null; }
+  try {
+    return JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+  } catch {
+    return null;
+  }
 }

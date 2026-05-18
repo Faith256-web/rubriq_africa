@@ -38,16 +38,34 @@ function Login() {
         <form onSubmit={submit} className="mt-6 space-y-4">
           <div>
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+            <Input
+              id="email"
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
           </div>
           <div>
             <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
+            <Input
+              id="password"
+              type="password"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
           </div>
-          <Button type="submit" className="w-full rounded-full bg-brand-gradient text-primary-foreground hover:opacity-90">Log in</Button>
+          <Button
+            type="submit"
+            className="w-full rounded-full bg-brand-gradient text-primary-foreground hover:opacity-90"
+          >
+            Log in
+          </Button>
         </form>
         <p className="mt-4 text-center text-sm text-muted-foreground">
-          New here? <Link to="/signup" className="font-semibold text-primary hover:underline">Create an account</Link>
+          New here?{" "}
+          <Link to="/signup" className="font-semibold text-primary hover:underline">
+            Create an account
+          </Link>
         </p>
       </div>
     </section>

@@ -3,8 +3,6 @@
 
 /*
  * Rubriq Africa — Design System
- * Brand palette: green (sustainability) + orange (energy/clay).
- * Tokens are HSL via oklch. Always use semantic tokens, never hardcoded colors.
  */
 
 :root {

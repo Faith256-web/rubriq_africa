@@ -76,7 +76,7 @@ function Cart() {
           </div>
           <div className="mt-1 flex justify-between text-sm text-muted-foreground">
             <span>Delivery</span>
-            <span>Calculated at quote</span>
+            <span>Calculated at delivery</span>
           </div>
           <div className="mt-4 flex justify-between border-t pt-4 text-lg font-bold">
             <span>Total</span>
@@ -84,12 +84,12 @@ function Cart() {
           </div>
           <Button
             onClick={() => {
-              toast.success("Order request sent — we'll confirm shortly.");
+              toast.success("Order request sent we'll confirm shortly.");
               clear();
             }}
             className="mt-5 w-full rounded-full bg-brand-gradient text-primary-foreground hover:opacity-90"
           >
-            Request quote
+            Place order
           </Button>
           <p className="mt-3 text-center text-xs text-muted-foreground">
             Online payments are not yet supported. We'll arrange invoicing.

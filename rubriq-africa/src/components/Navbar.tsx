@@ -1,13 +1,9 @@
-// Top navigation bar — gradient green→orange band, brand logo left,
-// nav links center, Log In + Sign Up + Cart on the right.
-
 import { Link, useLocation } from "@tanstack/react-router";
 import { ShoppingCart, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { useCart } from "@/lib/cart";
 import { Button } from "@/components/ui/button";
 
-// 👉 IMPORT YOUR LOGO HERE
 import logo from "@/assets/Logo.jpg"; // change path if needed
 
 const links = [
@@ -25,7 +21,7 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 bg-brand-gradient shadow-brand">
       <nav className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* BRAND LOGO (REPLACED RA) */}
+        {/* BRAND LOGO */}
         <Link to="/" className="flex items-center gap-3">
           <img src={logo} alt="Rubriq Africa Logo" className="h-10 w-auto object-contain sm:h-12" />
         </Link>

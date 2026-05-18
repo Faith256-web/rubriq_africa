@@ -1,4 +1,3 @@
-// Contact page — inquiry form (saved to localStorage; swap for /api/inquiries later).
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";

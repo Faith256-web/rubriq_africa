@@ -20,7 +20,7 @@ export const Route = createFileRoute("/products")({
   component: Products,
 });
 
-const categories = ["All", "Bricks", "Pavers", "Blocks", "Kerbs"] as const;
+const categories = ["All", "Bricks", "Pavers", "Blocks"] as const;
 
 function Products() {
   const [cat, setCat] = useState<(typeof categories)[number]>("All");

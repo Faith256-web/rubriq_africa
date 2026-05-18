@@ -1,4 +1,3 @@
-// Signup — first user becomes superadmin (per project spec).
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";

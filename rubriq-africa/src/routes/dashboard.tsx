@@ -1,6 +1,3 @@
-// Dashboard — visible after login. Superadmin sees a "Full Control" badge and
-// the "Manage Users" admin button (per project spec). IdleTimeout will auto
-// log the user out after 5 minutes of inactivity (see <IdleTimeout /> in __root).
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ShieldCheck, Users, Package, LogOut } from "lucide-react";
@@ -43,7 +40,10 @@ function Dashboard() {
         </div>
         <Button
           variant="outline"
-          onClick={() => { logout(); navigate({ to: "/login" }); }}
+          onClick={() => {
+            logout();
+            navigate({ to: "/login" });
+          }}
           className="rounded-full"
         >
           <LogOut className="mr-2 h-4 w-4" /> Log out
@@ -75,7 +75,10 @@ function Dashboard() {
       {isAdmin && (
         <div className="mt-8 flex flex-wrap gap-3">
           {/* Admin-only action — hidden for standard users (per spec). */}
-          <Button className="rounded-full bg-brand-gradient text-primary-foreground" onClick={() => alert("User management UI coming soon")}>
+          <Button
+            className="rounded-full bg-brand-gradient text-primary-foreground"
+            onClick={() => alert("User management UI coming soon")}
+          >
             <Users className="mr-2 h-4 w-4" /> Manage Users
           </Button>
           <Button asChild variant="outline" className="rounded-full">
