@@ -1,35 +1,27 @@
-// Floating AI chatbot widget — uses canned rule-based replies for now (no backend).
-// Swap `reply()` with a real API call once Lovable Cloud + Lovable AI Gateway is enabled.
-import React, { useState } from "react";
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// Floating AI chatbot & real-time chat widget
+import React, { useState, useEffect, useRef } from "react";
 import { MessageCircle, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-type Msg = { role: "bot" | "user"; text: string };
+type Msg = { role: "bot" | "user"; text: string; sender_name?: string };
 
-// Very small keyword-based assistant standing in for a real LLM.
-function reply(input: string): string {
-  const q = input.toLowerCase();
-  if (/price|cost|ugx/.test(q)) {
-    return "Our products start from 1,200 UGX (clay brick). Visit Products for the full price list.";
+const getOrCreateSessionId = () => {
+  if (typeof window === "undefined") {
+    return null;
   }
-  if (/deliver|shipping/.test(q)) {
-    return "We deliver across Uganda. Contact us with your location for a quote.";
+
+  let sessionId = localStorage.getItem("sessionId");
+
+  if (!sessionId) {
+    sessionId = crypto.randomUUID();
+    localStorage.setItem("sessionId", sessionId);
   }
-  if (/about|company/.test(q)) {
-    return "Rubriq Africa is a 1-year-old Ugandan firm making sustainable bricks and pavers from local and recycled materials.";
-  }
-  if (/contact|phone|email/.test(q)) {
-    return "You can reach us at hello@rubriq.africa or +256 700 000 000.";
-  }
-  if (/paver|brick|block|stock/.test(q)) {
-    return "We stock clay bricks, grey & cobble pavers, recycled-rubber pavers, hollow blocks and kerbs. See the Products page.";
-  }
-  if (/hello|hi|hey/.test(q)) {
-    return "Hello! 👋 I'm Rubi, the Rubriq assistant. Ask me about products, prices or delivery.";
-  }
-  return "Thanks! A teammate will follow up. In the meantime, browse our Products page or send an inquiry on Contact.";
-}
+
+  return sessionId;
+};
 
 export function Chatbot() {
   const [open, setOpen] = useState(false);
@@ -37,16 +29,97 @@ export function Chatbot() {
     { role: "bot", text: "Hi, I'm Rubi 👋 — how can I help you today?" },
   ]);
   const [text, setText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const sessionId = getOrCreateSessionId();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const send = () => {
+  // Fetch previous messages
+
+  const fetchHistory = async () => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/chat/messages?session_id=${sessionId}`);
+      if (res.ok) {
+        const data = await res.json();
+        const mapped = data.map((m: any) => ({
+          role: m.sender_id === "admin" ? "bot" : "user",
+          text: m.message,
+          sender_name: m.sender_name,
+        }));
+        if (mapped.length > 0) {
+          setMsgs(mapped);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load chat history:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory, sessionId]);
+
+  // Scroll to bottom
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [msgs, open]);
+
+  // Poll for admin agent answers
+  useEffect(() => {
+    if (!open) return;
+    const interval = setInterval(fetchHistory, 4000);
+    return () => clearInterval(interval);
+  }, [open, sessionId]);
+
+  const send = async () => {
     const t = text.trim();
-    if (!t) return;
-    setMsgs((m) => [...m, { role: "user", text: t }, { role: "bot", text: reply(t) }]);
+    if (!t || loading) return;
+
+    // Add user message locally immediately
+    setMsgs((m) => [...m, { role: "user", text: t }]);
     setText("");
+    setLoading(true);
+
+    try {
+      const res = await fetch("http://localhost:5000/api/chat/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sender_id: sessionId,
+          recipient_id: "admin",
+          sender_name: "Guest",
+          message: t,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Server error");
+      }
+
+      const data = await res.json();
+      if (data.bot_reply) {
+        setMsgs((m) => [
+          ...m,
+          { role: "bot", text: data.bot_reply.message, sender_name: data.bot_reply.sender_name },
+        ]);
+      }
+    } catch (err) {
+      setMsgs((m) => [
+        ...m,
+        {
+          role: "bot",
+          text: "⚠️ Sorry, I couldn't send your message. Please check your connection.",
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <>
+      {/* Floating button */}
       <button
         onClick={() => setOpen((o) => !o)}
         className="fixed bottom-6 right-6 z-50 grid h-14 w-14 place-items-center rounded-full bg-brand-gradient text-primary-foreground shadow-brand transition-smooth hover:scale-105"
@@ -55,39 +128,84 @@ export function Chatbot() {
         {open ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
       </button>
 
+      {/* Chat window */}
       {open && (
-        <div className="fixed bottom-24 right-6 z-50 flex h-115 w-85 flex-col overflow-hidden rounded-2xl border bg-card shadow-brand">
+        <div className="fixed bottom-24 right-6 z-50 flex h-115 w-87.5 flex-col overflow-hidden rounded-2xl border bg-card shadow-brand transition-smooth">
+          {/* Header */}
           <div className="bg-brand-gradient px-4 py-3 text-primary-foreground">
             <p className="font-display text-lg font-semibold">Rubi · Live Chat</p>
-            <p className="text-xs opacity-90">We typically reply in a minute</p>
+            <p className="text-xs opacity-90">AI Agent active — Human Support available</p>
           </div>
-          <div className="flex-1 space-y-2 overflow-y-auto bg-muted/40 p-3 text-sm">
+
+          {/* Messages */}
+          <div className="flex-1 space-y-3 overflow-y-auto bg-muted/40 p-4 text-sm">
             {msgs.map((m, i) => (
               <div
                 key={i}
-                className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}
               >
+                {m.sender_name && m.role === "bot" && (
+                  <span className="mb-0.5 text-[10px] text-muted-foreground ml-1">
+                    {m.sender_name}
+                  </span>
+                )}
                 <div
-                  className={`max-w-[80%] rounded-2xl px-3 py-2 ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-card text-card-foreground shadow-card"}`}
+                  className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 shadow-sm leading-relaxed ${
+                    m.role === "user"
+                      ? "bg-primary text-primary-foreground rounded-tr-none"
+                      : "bg-card text-card-foreground border rounded-tl-none"
+                  }`}
                 >
                   {m.text}
                 </div>
               </div>
             ))}
+            <div ref={messagesEndRef} />
+
+            {loading && (
+              <div className="flex justify-start">
+                <div className="max-w-[80%] rounded-2xl bg-card border rounded-tl-none px-3.5 py-2.5 text-muted-foreground shadow-sm">
+                  <span className="flex items-center gap-1">
+                    <span
+                      className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground"
+                      style={{ animationDelay: "0ms" }}
+                    ></span>
+                    <span
+                      className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground"
+                      style={{ animationDelay: "150ms" }}
+                    ></span>
+                    <span
+                      className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground"
+                      style={{ animationDelay: "300ms" }}
+                    ></span>
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* Input */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
               send();
             }}
-            className="flex gap-2 border-t bg-card p-2"
+            className="flex gap-2 border-t bg-card p-3"
           >
             <Input
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="Type a message…"
+              disabled={loading}
+              className="rounded-full bg-muted/40 border-none focus-visible:ring-1 focus-visible:ring-primary"
             />
-            <Button type="submit" size="icon" className="bg-brand-gradient text-primary-foreground">
+
+            <Button
+              type="submit"
+              size="icon"
+              className="rounded-full bg-brand-gradient text-primary-foreground h-9 w-9 shrink-0 shadow-brand hover:opacity-90"
+              disabled={loading || !text.trim()}
+            >
               <Send className="h-4 w-4" />
             </Button>
           </form>

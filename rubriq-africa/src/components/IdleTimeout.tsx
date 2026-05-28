@@ -4,6 +4,7 @@
 // backend is wired up.
 import { useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "@tanstack/react-router";
+import { logout } from "@/lib/auth";
 
 const FIVE_MIN = 5 * 60 * 1000;
 
@@ -19,8 +20,7 @@ export function IdleTimeout() {
     const reset = () => {
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => {
-        // Mock logout — in production: await fetch("/api/auth/logout", { method: "POST" });
-        localStorage.removeItem("rubriq.session.v1");
+        logout();
         navigate({ to: "/login", search: { reason: "idle" } as never });
       }, FIVE_MIN);
     };

@@ -6,6 +6,7 @@ import bgPavers from "@/assets/pavers_applied.png";
 import { Button } from "@/components/ui/button";
 import { products, formatUGX } from "@/lib/products";
 import { useCart } from "@/lib/cart";
+import { getImageUrl } from "@/lib/api";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -149,12 +150,16 @@ function Home() {
                 className="group overflow-hidden rounded-2xl bg-card shadow-card transition-smooth hover:-translate-y-1"
               >
                 <img
-                  src={p.image}
+                  src={getImageUrl(p.image)}
                   alt={p.name}
                   loading="lazy"
                   width={800}
                   height={800}
                   className="h-56 w-full object-cover transition-smooth group-hover:scale-105"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src =
+                      "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?auto=format&fit=crop&q=80&w=400";
+                  }}
                 />
                 <div className="p-5">
                   <p className="text-xs font-semibold uppercase tracking-wide text-secondary">

@@ -1,61 +1,36 @@
-// Mock auth using localStorage — no real backend yet.
-// Replace with /api/auth/register, /api/auth/login, /api/auth/logout calls
-// (bcryptjs hashing + JWT in httpOnly cookies + Zod validation) when backend is added.
 import { z } from "zod";
+import { BACKEND_URL } from "./api";
 
 export const registerSchema = z.object({
   name: z.string().trim().min(2, "Name too short").max(80),
   email: z.string().trim().email("Invalid email").max(255),
+  phone: z.string().trim().min(9, "Phone number too short").max(20),
   password: z.string().min(8, "Password must be at least 8 characters").max(100),
+  method: z.enum(["email", "sms"]).default("email"),
 });
+
 export const loginSchema = z.object({
-  email: z.string().trim().email("Invalid email"),
-  password: z.string().min(1, "Password required"),
+  email: z.string().trim().min(1, "Email or phone number is required"),
+  password: z.string().min(1, "Password is required"),
+  adminCode: z.string().optional(),
 });
 
-export type Role = "superadmin" | "user";
-export type StoredUser = { name: string; email: string; password: string; role: Role };
-export type Session = { name: string; email: string; role: Role };
+export type Role = "user" | "admin" | "superadmin";
 
-const USERS_KEY = "rubriq.users.v1";
-const SESSION_KEY = "rubriq.session.v1";
-
-const readUsers = (): StoredUser[] => {
-  try {
-    return JSON.parse(localStorage.getItem(USERS_KEY) || "[]");
-  } catch {
-    return [];
-  }
+export type Session = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: Role;
+  is_admin: boolean;
 };
-const writeUsers = (u: StoredUser[]) => localStorage.setItem(USERS_KEY, JSON.stringify(u));
 
-// NOTE: This is browser-side mock storage. Real backend MUST hash with bcryptjs server-side.
-export function register(input: z.infer<typeof registerSchema>): Session {
-  const data = registerSchema.parse(input);
-  const users = readUsers();
-  if (users.some((u) => u.email === data.email))
-    throw new Error("An account with that email already exists.");
-  // First user becomes superadmin (per spec).
-  const role: Role = users.length === 0 ? "superadmin" : "user";
-  const user: StoredUser = { ...data, role };
-  writeUsers([...users, user]);
-  const session: Session = { name: user.name, email: user.email, role };
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  return session;
-}
+const SESSION_KEY = "rubriq.session.v1";
+const TOKEN_KEY = "rubriq.token.v1";
 
-export function login(input: z.infer<typeof loginSchema>): Session {
-  const data = loginSchema.parse(input);
-  const users = readUsers();
-  const found = users.find((u) => u.email === data.email && u.password === data.password);
-  if (!found) throw new Error("Invalid email or password.");
-  const session: Session = { name: found.name, email: found.email, role: found.role };
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  return session;
-}
-
-export function logout() {
-  localStorage.removeItem(SESSION_KEY);
+export function getToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
 }
 
 export function getSession(): Session | null {
@@ -64,4 +39,109 @@ export function getSession(): Session | null {
   } catch {
     return null;
   }
+}
+
+export function logout() {
+  // Optional: Notify backend to blacklist token
+  const token = getToken();
+  if (token) {
+    fetch(`${BACKEND_URL}/api/auth/logout`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    }).catch(err => console.error("Logout request failed:", err));
+  }
+  localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+/**
+ * Initiates the signup process by requesting an OTP.
+ */
+export async function registerRequest(input: z.infer<typeof registerSchema>): Promise<{
+  message: string;
+  otp_code?: number;
+  email: string;
+  phone: string;
+}> {
+  const res = await fetch(`${BACKEND_URL}/api/auth/register-request`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: input.name,
+      email: input.email,
+      phone: input.phone,
+      password: input.password,
+      method: input.method,
+    }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || "Registration request failed.");
+  }
+  return data;
+}
+
+/**
+ * Completes the signup process by verifying the OTP.
+ */
+export async function registerVerify(email: string, otpCode: string): Promise<Session> {
+  const res = await fetch(`${BACKEND_URL}/api/auth/register-verify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, otp_code: otpCode }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || "Verification failed.");
+  }
+
+  // Save credentials on success
+  localStorage.setItem(TOKEN_KEY, data.access_token);
+  const session: Session = {
+    id: String(data.user.id),
+    name: data.user.name,
+    email: data.user.email,
+    phone: data.user.phone,
+    role: data.user.role,
+    is_admin: data.user.is_admin,
+  };
+  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  return session;
+}
+
+/**
+ * Log in a user.
+ */
+export async function login(input: z.infer<typeof loginSchema>): Promise<Session> {
+  const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: input.email,
+      password: input.password,
+      admin_code: input.adminCode || undefined,
+    }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || "Login failed.");
+  }
+
+  // Save credentials on success
+  localStorage.setItem(TOKEN_KEY, data.access_token);
+  const session: Session = {
+    id: String(data.user.id),
+    name: data.user.name,
+    email: data.user.email,
+    phone: data.user.phone,
+    role: data.user.role,
+    is_admin: data.user.is_admin,
+  };
+  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  return session;
 }
