@@ -4,10 +4,15 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { formatUGX, type Product } from "@/lib/products";
 import { useCart } from "@/lib/cart";
-import { getImageUrl } from "@/lib/api";
+import { getImageUrl, BACKEND_URL } from "@/lib/api";
 import { getToken } from "@/lib/auth";
-import bg from "@/assets/rubber_bricks.png";
 import { toast } from "sonner";
+
+// Local image imports for slideshow
+import bg1 from "@/assets/rubber_bricks.png";
+import bg2 from "@/assets/eco_rubber_bricks.png";
+import bg3 from "@/assets/rubber_paver_pallet.png";
+import bg4 from "@/assets/pavers_applied.png";
 
 export const Route = createFileRoute("/products")({
   head: () => ({
@@ -25,17 +30,61 @@ export const Route = createFileRoute("/products")({
 
 const categories = ["All", "Bricks", "Pavers", "Blocks"] as const;
 
+const slides = [
+  {
+    image: bg1,
+    title: "Rubber Bricks",
+    subtitle: "Innovative, highly durable rubber bricks for heavy duty construction.",
+  },
+  {
+    image: bg2,
+    title: "Eco Rubber Bricks",
+    subtitle: "Sustainable and eco-friendly paving solutions made from recycled tires.",
+  },
+  {
+    image: bg3,
+    title: "Premium Rubber Pavers",
+    subtitle: "Interlocking rubber tiles in various color options and designs.",
+  },
+  {
+    image: bg4,
+    title: "Sustainable Paving Projects",
+    subtitle: "Durable, shock-absorbent paving projects installed across Uganda.",
+  },
+];
+
 function Products() {
   const [cat, setCat] = useState<(typeof categories)[number]>("All");
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [slideIndex, setSlideIndex] = useState(0);
   const { add } = useCart();
+
+  const searchParams = new URLSearchParams(window.location.search);
+  const urlCategory = searchParams.get("category") || "All";
+  const urlSearch = searchParams.get("search") || "";
+
+  useEffect(() => {
+    if (urlCategory && categories.includes(urlCategory as any)) {
+      setCat(urlCategory as any);
+    } else {
+      setCat("All");
+    }
+  }, [urlCategory]);
+
+  // Slide rotation interval
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSlideIndex((prev) => (prev + 1) % slides.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, []);
 
   // =========================
   // FETCH PRODUCTS FROM BACKEND
   // =========================
   useEffect(() => {
-    fetch("http://localhost:5000/api/products")
+    fetch(`${BACKEND_URL}/api/products`)
       .then((res) => res.json())
       .then((data) => {
         setProducts(data);
@@ -47,7 +96,11 @@ function Products() {
       });
   }, []);
 
-  const list = cat === "All" ? products : products.filter((p) => p.category === cat);
+  const list = products.filter((p) => {
+    const matchesCategory = cat === "All" || p.category === cat;
+    const matchesSearch = !urlSearch || p.name.toLowerCase().includes(urlSearch.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   // =========================
   // ADD TO CART (BACKEND VERSION)
@@ -60,7 +113,7 @@ function Products() {
     }
 
     try {
-      const res = await fetch("http://localhost:5000/api/cart/add", {
+      const res = await fetch(`${BACKEND_URL}/api/cart/add`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -88,19 +141,34 @@ function Products() {
 
   return (
     <>
-      {/* HERO SECTION */}
-      <section className="relative isolate overflow-hidden">
-        <img
-          src={bg}
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover"
-          loading="lazy"
-        />
-        <div className="absolute inset-0 bg-brand-gradient-soft mix-blend-multiply" />
+      {/* HERO SECTION WITH CROSS-FADING ROTATING BACKGROUND IMAGES */}
+      <section className="relative isolate overflow-hidden h-[360px] bg-black">
+        {slides.map((slide, idx) => (
+          <div
+            key={idx}
+            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+              idx === slideIndex ? "opacity-100 z-10" : "opacity-0 z-0"
+            }`}
+          >
+            <img
+              src={slide.image}
+              alt={slide.title}
+              className="absolute inset-0 h-full w-full object-cover transform scale-102 transition-transform duration-[4500ms]"
+              loading="lazy"
+            />
+            <div className="absolute inset-0 bg-brand-gradient-soft mix-blend-multiply opacity-85" />
+            <div className="absolute inset-0 bg-black/30" />
+          </div>
+        ))}
 
-        <div className="relative mx-auto max-w-4xl px-6 py-20 text-center text-white">
-          <h1 className="font-display text-5xl font-bold">Our Products</h1>
-          <p className="mt-3 opacity-95">Eco-friendly materials, proudly crafted in Uganda.</p>
+        {/* Content centered over the slideshow */}
+        <div className="relative z-20 mx-auto max-w-4xl px-6 text-center text-white flex flex-col justify-center h-full">
+          <h1 className="font-display text-5xl font-bold tracking-tight">
+            {slides[slideIndex].title}
+          </h1>
+          <p className="mt-3 opacity-95 max-w-xl mx-auto text-base">
+            {slides[slideIndex].subtitle}
+          </p>
         </div>
       </section>
 
@@ -127,7 +195,7 @@ function Products() {
         {loading && <p className="text-center text-muted-foreground">Loading products...</p>}
 
         {/* PRODUCT GRID */}
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((p) => (
             <article
               key={p.id}
@@ -165,8 +233,19 @@ function Products() {
                       {formatUGX(p.price)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {p.unit} · {p.stock.toLocaleString()} in stock
+                      {p.unit}
                     </p>
+                  </div>
+                  <div>
+                    {p.stock > 0 ? (
+                      <span className="inline-block rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-600">
+                        {p.stock.toLocaleString()} in stock
+                      </span>
+                    ) : (
+                      <span className="inline-block rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive">
+                        Out of stock
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -194,9 +273,10 @@ function Products() {
 
                   <Button
                     onClick={() => handleAddToCart(p)}
-                    className="flex-1 rounded-full bg-brand-gradient text-primary-foreground hover:opacity-90 h-10"
+                    disabled={p.stock <= 0}
+                    className="flex-1 rounded-full bg-brand-gradient text-primary-foreground h-10 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 hover:scale-[1.02] hover:brightness-110 hover:shadow-brand"
                   >
-                    Add to cart
+                    {p.stock > 0 ? "Add to cart" : "Out of stock"}
                   </Button>
                 </div>
               </div>

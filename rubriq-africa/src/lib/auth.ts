@@ -5,7 +5,12 @@ export const registerSchema = z.object({
   name: z.string().trim().min(2, "Name too short").max(80),
   email: z.string().trim().email("Invalid email").max(255),
   phone: z.string().trim().min(9, "Phone number too short").max(20),
-  password: z.string().min(8, "Password must be at least 8 characters").max(100),
+  password: z.string()
+    .min(8, "Password must be at least 8 characters long")
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number")
+    .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character")
+    .max(100),
   method: z.enum(["email", "sms"]).default("email"),
 });
 

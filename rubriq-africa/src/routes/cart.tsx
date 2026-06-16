@@ -6,14 +6,14 @@ import { formatUGX } from "@/lib/products";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { getToken } from "@/lib/auth";
-import { getImageUrl } from "@/lib/api";
+import { getImageUrl, BACKEND_URL } from "@/lib/api";
 
 export const Route = createFileRoute("/cart")({
   component: Cart,
   head: () => ({ meta: [{ title: "Your Cart — Rubriq Africa" }] }),
 });
 
-const API = "http://localhost:5000/api/cart";
+const API = `${BACKEND_URL}/api/cart`;
 
 function Cart() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -61,7 +61,7 @@ function Cart() {
   const updateQty = async (product_id: number, quantity: number) => {
     if (!token) return;
     try {
-      await fetch(API + "/update", {
+      const res = await fetch(API + "/update", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -69,9 +69,14 @@ function Cart() {
         },
         body: JSON.stringify({ product_id, quantity }),
       });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to update quantity");
+      }
       fetchCart();
     } catch (err) {
-      toast.error("Failed to update quantity");
+      toast.error((err as Error).message || "Failed to update quantity");
     }
   };
 

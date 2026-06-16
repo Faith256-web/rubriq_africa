@@ -5,6 +5,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { MessageCircle, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+import { BACKEND_URL } from "@/lib/api";
 
 type Msg = { role: "bot" | "user"; text: string; sender_name?: string };
 
@@ -25,6 +27,7 @@ const getOrCreateSessionId = () => {
 
 export function Chatbot() {
   const [open, setOpen] = useState(false);
+  const [chatMode, setChatMode] = useState<"bot" | "human">("bot");
   const [msgs, setMsgs] = useState<Msg[]>([
     { role: "bot", text: "Hi, I'm Rubi 👋 — how can I help you today?" },
   ]);
@@ -33,11 +36,18 @@ export function Chatbot() {
   const sessionId = getOrCreateSessionId();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Fetch previous messages
+  // Read chatMode from localStorage
+  useEffect(() => {
+    const savedMode = localStorage.getItem("rubriq.chat_mode.v1") as "bot" | "human";
+    if (savedMode) {
+      setChatMode(savedMode);
+    }
+  }, []);
 
+  // Fetch previous messages
   const fetchHistory = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/chat/messages?session_id=${sessionId}`);
+      const res = await fetch(`${BACKEND_URL}/api/chat/messages?session_id=${sessionId}`);
       if (res.ok) {
         const data = await res.json();
         const mapped = data.map((m: any) => ({
@@ -56,7 +66,7 @@ export function Chatbot() {
 
   useEffect(() => {
     fetchHistory();
-  }, [fetchHistory, sessionId]);
+  }, [sessionId]);
 
   // Scroll to bottom
   useEffect(() => {
@@ -70,6 +80,31 @@ export function Chatbot() {
     return () => clearInterval(interval);
   }, [open, sessionId]);
 
+  const requestHuman = async () => {
+    setChatMode("human");
+    localStorage.setItem("rubriq.chat_mode.v1", "human");
+    setMsgs((m) => [...m, { role: "user", text: "[System: Connecting to operator...]" }]);
+    
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/chat/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sender_id: sessionId,
+          recipient_id: "admin",
+          sender_name: "Guest",
+          message: "🙋 I would like to speak to a human operator.",
+          chat_mode: "human", // tell backend not to trigger AI bot auto-reply
+        }),
+      });
+      if (res.ok) {
+        toast.success("Handoff requested. A human operator will assist you soon!");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const send = async () => {
     const t = text.trim();
     if (!t || loading) return;
@@ -80,7 +115,7 @@ export function Chatbot() {
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:5000/api/chat/send", {
+      const res = await fetch(`${BACKEND_URL}/api/chat/send`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -90,6 +125,7 @@ export function Chatbot() {
           recipient_id: "admin",
           sender_name: "Guest",
           message: t,
+          chat_mode: chatMode,
         }),
       });
 
@@ -132,9 +168,33 @@ export function Chatbot() {
       {open && (
         <div className="fixed bottom-24 right-6 z-50 flex h-115 w-87.5 flex-col overflow-hidden rounded-2xl border bg-card shadow-brand transition-smooth">
           {/* Header */}
-          <div className="bg-brand-gradient px-4 py-3 text-primary-foreground">
-            <p className="font-display text-lg font-semibold">Rubi · Live Chat</p>
-            <p className="text-xs opacity-90">AI Agent active — Human Support available</p>
+          <div className="bg-brand-gradient px-4 py-3 text-primary-foreground flex justify-between items-center">
+            <div>
+              <p className="font-display text-lg font-semibold">Rubi · Live Chat</p>
+              <p className="text-[10px] opacity-90">
+                {chatMode === "bot" ? "🤖 AI Assistant Active" : "🙋 Human Handoff Active"}
+              </p>
+            </div>
+            {chatMode === "bot" && (
+              <button
+                onClick={requestHuman}
+                className="text-[10px] bg-white/20 hover:bg-white/30 text-white font-bold rounded-full px-2.5 py-1 transition"
+              >
+                Talk to Human
+              </button>
+            )}
+            {chatMode === "human" && (
+              <button
+                onClick={() => {
+                  setChatMode("bot");
+                  localStorage.setItem("rubriq.chat_mode.v1", "bot");
+                  toast.success("Switched back to AI Assistant.");
+                }}
+                className="text-[10px] bg-white/20 hover:bg-white/30 text-white font-bold rounded-full px-2.5 py-1 transition"
+              >
+                Use AI Bot
+              </button>
+            )}
           </div>
 
           {/* Messages */}

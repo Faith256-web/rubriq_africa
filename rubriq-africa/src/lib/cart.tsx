@@ -1,16 +1,15 @@
-/* eslint-disable react-refresh/only-export-components */
-// Cart context — persists items in localStorage. No backend required.
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import type { Product } from "./products";
+import { BACKEND_URL } from "./api";
 
 export type CartItem = { product: Product; qty: number };
 
 type CartCtx = {
   items: CartItem[];
   add: (p: Product, qty?: number) => void;
-  remove: (id: string) => void;
-  setQty: (id: string, qty: number) => void;
+  remove: (id: string | number) => void;
+  setQty: (id: string | number, qty: number) => void;
   clear: () => void;
   count: number;
   total: number;
@@ -29,6 +28,66 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return [];
     }
   });
+
+  // Sync with backend cart if logged in, fallback to local storage on logout
+  useEffect(() => {
+    let active = true;
+
+    const fetchCart = () => {
+      const token = localStorage.getItem("rubriq.token.v1");
+      if (!token) {
+        try {
+          const local = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+          setItems((prev) => {
+            const hasChanged = JSON.stringify(local) !== JSON.stringify(prev);
+            return hasChanged ? local : prev;
+          });
+        } catch {
+          setItems([]);
+        }
+        return;
+      }
+
+      fetch(`${BACKEND_URL}/api/cart/`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      .then((res) => {
+        if (res.ok) return res.json();
+        throw new Error();
+      })
+      .then((data) => {
+        if (!active) return;
+        const mapped: CartItem[] = (data.items || []).map((item: any) => ({
+          product: {
+            id: item.product_id,
+            name: item.name,
+            price: item.price,
+            image: item.image,
+            category: "Bricks",
+            unit: "per unit",
+            description: "",
+            stock: 99999,
+          },
+          qty: item.qty,
+        }));
+        setItems((prev) => {
+          const hasChanged = JSON.stringify(mapped) !== JSON.stringify(prev);
+          return hasChanged ? mapped : prev;
+        });
+      })
+      .catch(() => {});
+    };
+
+    fetchCart();
+
+    const interval = setInterval(fetchCart, 2000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   // Persist cart whenever it changes.
   useEffect(() => {

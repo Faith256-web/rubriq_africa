@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { login, loginSchema } from "@/lib/auth";
+import { Eye, EyeOff } from "lucide-react";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "Log in — Rubriq Africa" }] }),
@@ -15,6 +16,8 @@ export const Route = createFileRoute("/login")({
 function Login() {
   const [form, setForm] = useState({ email: "", password: "", adminCode: "" });
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showAdminCode, setShowAdminCode] = useState(false);
   const navigate = useNavigate();
 
   const submit = async (e: React.FormEvent) => {
@@ -54,14 +57,24 @@ function Login() {
 
           <div>
             <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              required
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="••••••••"
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                className="pr-10"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
+              >
+                {showPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
 
           <div>
@@ -71,13 +84,23 @@ function Login() {
                 If logging in as Admin
               </span>
             </Label>
-            <Input
-              id="adminCode"
-              type="text"
-              placeholder="e.g. Okumu@078@078"
-              value={form.adminCode}
-              onChange={(e) => setForm({ ...form, adminCode: e.target.value })}
-            />
+            <div className="relative">
+              <Input
+                id="adminCode"
+                type={showAdminCode ? "text" : "password"}
+                placeholder="Enter secret code"
+                value={form.adminCode}
+                onChange={(e) => setForm({ ...form, adminCode: e.target.value })}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowAdminCode(!showAdminCode)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
+              >
+                {showAdminCode ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
 
           <Button
@@ -88,6 +111,8 @@ function Login() {
             {loading ? "Logging in..." : "Log in"}
           </Button>
         </form>
+
+
 
         <p className="mt-4 text-center text-sm text-muted-foreground">
           New here?{" "}

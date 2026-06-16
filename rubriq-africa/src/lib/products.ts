@@ -7,7 +7,7 @@ import rubberBricks from "@/assets/rubber_bricks.png";
 import rubberPaverPallet from "@/assets/rubber_paver_pallet.png";
 
 export type Product = {
-  id: string;
+  id: string | number;
   name: string;
   category: "Bricks" | "Pavers" | "Blocks";
   price: number; // UGX, per unit

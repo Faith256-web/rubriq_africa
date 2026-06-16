@@ -1,4 +1,4 @@
-export const BACKEND_URL = "http://localhost:5000";
+export const BACKEND_URL = (import.meta.env.VITE_API_URL as string) || "http://127.0.0.1:5000";
 
 /**
  * Normalizes image paths returned by the backend, ensuring they are resolved
@@ -8,7 +8,14 @@ export function getImageUrl(path: string | undefined | null): string {
   if (!path) {
     return "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?auto=format&fit=crop&q=80&w=400";
   }
-  if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("data:")) {
+  if (
+    path.startsWith("http://") ||
+    path.startsWith("https://") ||
+    path.startsWith("data:") ||
+    path.startsWith("/src/") ||
+    path.startsWith("/assets/") ||
+    path.startsWith("/@fs/")
+  ) {
     return path;
   }
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
